@@ -19,7 +19,7 @@ const (
 	ConsumerGroup = "campaign-workers"
 
 	// BlockTimeout is how long to block waiting for new messages
-	BlockTimeout = 5 * time.Second
+	BlockTimeout = 30 * time.Second
 
 	// ClaimMinIdleTime is the minimum idle time before claiming a pending message
 	ClaimMinIdleTime = 5 * time.Minute
