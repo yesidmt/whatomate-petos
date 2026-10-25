@@ -23,7 +23,9 @@ ocupa `charvis30`, así que hay que liberar esa plaza antes de cambiar
    `docker/Dockerfile`, exponer el puerto `8080` por HTTP y usar `/ready`
    como comprobación de salud. Free duerme tras una hora sin tráfico y se
    reactiva con una nueva petición; tener en cuenta el arranque en frío para
-   los webhooks de Meta.
+   los webhooks de Meta. El servidor también ejecuta un worker de campañas,
+   pero ese worker se detiene mientras la instancia está dormida. No usar
+   campañas programadas que dependan de ejecución continua en este plan.
 
 El archivo `docker/docker-compose.yml` se usa únicamente para desarrollo local;
 Koyeb no crea automáticamente sus servicios `db` y `redis` al construir el
@@ -32,7 +34,10 @@ Dockerfile.
 ## Variables del servicio web
 
 Configurar las siguientes variables en Koyeb. Guardar contraseñas, claves y
-tokens como **Secrets**, nunca en Git. El prefijo y el doble guion bajo son
+tokens como **Secrets**, nunca en Git ni como valores literales de variables.
+Referenciarlos como `{{ secret.NOMBRE }}` en el editor de variables; Koyeb
+puede incluir los valores literales en el enlace de despliegue generado por
+su interfaz. El prefijo y el doble guion bajo son
 obligatorios: `WHATOMATE_<SECCIÓN>__<CAMPO>`.
 
 | Variable | Valor |
