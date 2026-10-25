@@ -46,14 +46,15 @@ obligatorios: `WHATOMATE_<SECCIÓN>__<CAMPO>`.
 | `WHATOMATE_APP__DEBUG` | `false` |
 | `WHATOMATE_APP__ENCRYPTION_KEY` | Clave aleatoria de 32 caracteres o más; conservarla en futuros despliegues |
 | `WHATOMATE_SERVER__ALLOWED_ORIGINS` | `https://economic-inga-yesidcompany-2398b713.koyeb.app` |
-| `WHATOMATE_DATABASE__HOST` | Host privado de PostgreSQL |
+| `WHATOMATE_DATABASE__HOST` | Host de Neon PostgreSQL |
 | `WHATOMATE_DATABASE__PORT` | Puerto de PostgreSQL, normalmente `5432` |
 | `WHATOMATE_DATABASE__USER` | Usuario propio de Whatomate |
 | `WHATOMATE_DATABASE__PASSWORD` | Contraseña de ese usuario |
 | `WHATOMATE_DATABASE__NAME` | Base de datos propia de Whatomate |
 | `WHATOMATE_DATABASE__SSL_MODE` | Modo SSL exigido por PostgreSQL |
-| `WHATOMATE_REDIS__HOST` | Host privado de Redis |
+| `WHATOMATE_REDIS__HOST` | Host TCP de Upstash Redis |
 | `WHATOMATE_REDIS__PORT` | Puerto de Redis, normalmente `6379` |
+| `WHATOMATE_REDIS__USERNAME` | `default` en Upstash |
 | `WHATOMATE_REDIS__PASSWORD` | Contraseña de Redis, si aplica |
 | `WHATOMATE_REDIS__TLS` | `true` si Redis exige TLS |
 | `WHATOMATE_JWT__SECRET` | Clave aleatoria distinta, de 32 caracteres o más |
