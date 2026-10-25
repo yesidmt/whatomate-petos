@@ -1,19 +1,29 @@
 # Despliegue de Whatomate para Petos en Koyeb
 
-Koyeb debe ejecutar Whatomate como **un servicio web nuevo**. El dominio
-`economic-inga-yesidcompany-2398b713.koyeb.app` pertenece al servicio
-`notion-mcp-koyeb`; no se debe reemplazar para desplegar Whatomate.
+El dominio `economic-inga-yesidcompany-2398b713.koyeb.app` pertenece al
+servicio `notion-mcp-koyeb`. Su propietario autorizó reemplazarlo por
+Whatomate, conservando ese dominio. Antes de cambiar su código o variables,
+preparar PostgreSQL, Redis y los secretos, y comprobar que el coste estimado
+del servicio web sea **$0**. La instancia actual `eNano` cuesta $1,61/mes.
+
+Koyeb permite una sola instancia web Free por organización. En esta cuenta la
+ocupa `charvis30`, así que hay que liberar esa plaza antes de cambiar
+`notion-mcp-koyeb` a Free. No modificar `charvis30` sin autorización expresa.
 
 ## Servicios necesarios
 
 1. PostgreSQL persistente. Crear una base de datos y un usuario propios para
-   Whatomate, incluso si se reutiliza un servidor PostgreSQL existente.
+   Whatomate, incluso si se reutiliza un servidor PostgreSQL existente. La
+   base Free de Koyeb solo permite 5 horas activas al mes; comprobar que este
+   límite sirve para el uso previsto antes de conectar un número comercial.
 2. Redis en un servicio privado accesible desde Whatomate. La aplicación no
    arranca sin conexión a Redis.
-3. Servicio web `whatomate-petos`, conectado a este repositorio y a la rama
-   elegida. Seleccionar el builder **Dockerfile** y la ruta
+3. Servicio web existente `notion-mcp-koyeb`, conectado a este repositorio y
+   a `main`. Seleccionar la instancia **Free**, builder **Dockerfile** y ruta
    `docker/Dockerfile`, exponer el puerto `8080` por HTTP y usar `/ready`
-   como comprobación de salud.
+   como comprobación de salud. Free duerme tras una hora sin tráfico y se
+   reactiva con una nueva petición; tener en cuenta el arranque en frío para
+   los webhooks de Meta.
 
 El archivo `docker/docker-compose.yml` se usa únicamente para desarrollo local;
 Koyeb no crea automáticamente sus servicios `db` y `redis` al construir el
@@ -30,7 +40,7 @@ obligatorios: `WHATOMATE_<SECCIÓN>__<CAMPO>`.
 | `WHATOMATE_APP__ENVIRONMENT` | `production` |
 | `WHATOMATE_APP__DEBUG` | `false` |
 | `WHATOMATE_APP__ENCRYPTION_KEY` | Clave aleatoria de 32 caracteres o más; conservarla en futuros despliegues |
-| `WHATOMATE_SERVER__ALLOWED_ORIGINS` | URL HTTPS exacta del servicio nuevo |
+| `WHATOMATE_SERVER__ALLOWED_ORIGINS` | `https://economic-inga-yesidcompany-2398b713.koyeb.app` |
 | `WHATOMATE_DATABASE__HOST` | Host privado de PostgreSQL |
 | `WHATOMATE_DATABASE__PORT` | Puerto de PostgreSQL, normalmente `5432` |
 | `WHATOMATE_DATABASE__USER` | Usuario propio de Whatomate |
@@ -57,7 +67,8 @@ nueva, el administrador se crea una sola vez durante la migración.
 ## Meta y almacenamiento
 
 Tras desplegar, configurar en Meta la URL
-`https://<dominio-nuevo>.koyeb.app/api/webhook` y el mismo token de verificación.
+`https://economic-inga-yesidcompany-2398b713.koyeb.app/api/webhook` y el
+mismo token de verificación.
 El número comercial debe incorporarse al WhatsApp Business Platform por el
 flujo apropiado antes de conectar una cuenta en Whatomate. Si el número sigue
 en la app móvil de WhatsApp Business, utilizar el flujo de coexistencia para
