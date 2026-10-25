@@ -118,9 +118,11 @@ func runServer(args []string) {
 		lo.Fatal("Failed to load config", "error", err)
 	}
 
-	// Validate JWT secret
-	if cfg.App.Environment == "production" && len(cfg.JWT.Secret) < 32 {
-		lo.Fatal("JWT secret must be at least 32 characters in production")
+	// Refuse to expose a production server with the example credentials.
+	if cfg.App.Environment == "production" {
+		if err := validateProductionSecrets(cfg); err != nil {
+			lo.Fatal("Invalid production configuration", "error", err)
+		}
 	}
 	if cfg.JWT.Secret == "" {
 		lo.Warn("JWT secret is empty, using a random secret (tokens will not persist across restarts)")
@@ -343,6 +345,19 @@ func runServer(args []string) {
 		lo.Error("Server shutdown error", "error", err)
 	}
 	lo.Info("Server stopped")
+}
+
+func validateProductionSecrets(cfg *config.Config) error {
+	if len(cfg.JWT.Secret) < 32 || cfg.JWT.Secret == "your-super-secret-jwt-key-change-in-production" {
+		return fmt.Errorf("jwt.secret must be a custom value of at least 32 characters")
+	}
+	if len(cfg.App.EncryptionKey) < 32 {
+		return fmt.Errorf("app.encryption_key must be at least 32 characters")
+	}
+	if len(cfg.DefaultAdmin.Password) < 16 || cfg.DefaultAdmin.Password == "admin" {
+		return fmt.Errorf("default_admin.password must be a custom value of at least 16 characters")
+	}
+	return nil
 }
 
 // ============================================================================

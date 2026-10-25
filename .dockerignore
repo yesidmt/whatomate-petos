@@ -1,0 +1,17 @@
+.git
+.github
+**/config.toml
+**/.env
+**/.env.*
+.env
+.env.*
+docker/.env
+docker/.env.*
+frontend/node_modules
+frontend/dist
+internal/frontend/dist
+docker/uploads
+docker/audio
+uploads
+audio
+*.log
