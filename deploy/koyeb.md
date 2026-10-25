@@ -8,16 +8,16 @@ del servicio web sea **$0**. La instancia actual `eNano` cuesta $1,61/mes.
 
 Koyeb permite una sola instancia web Free por organización. En esta cuenta la
 ocupa `charvis30`, así que hay que liberar esa plaza antes de cambiar
-`notion-mcp-koyeb` a Free. No modificar `charvis30` sin autorización expresa.
+`notion-mcp-koyeb` a Free. El propietario autorizó liberar `charvis30`.
 
 ## Servicios necesarios
 
-1. PostgreSQL persistente. Crear una base de datos y un usuario propios para
-   Whatomate, incluso si se reutiliza un servidor PostgreSQL existente. La
-   base Free de Koyeb solo permite 5 horas activas al mes; comprobar que este
-   límite sirve para el uso previsto antes de conectar un número comercial.
-2. Redis en un servicio privado accesible desde Whatomate. La aplicación no
-   arranca sin conexión a Redis.
+1. PostgreSQL persistente en **Neon Free**, con base de datos propia para
+   Whatomate. La base Free de Koyeb solo permite 5 horas activas al mes, por
+   lo que no se utilizará para este número comercial.
+2. **Upstash Redis Free**, conectado por el protocolo Redis/TCP con TLS. La
+   aplicación no arranca sin conexión a Redis. Mantener el consumo dentro de
+   las cuotas gratuitas de Upstash.
 3. Servicio web existente `notion-mcp-koyeb`, conectado a este repositorio y
    a `main`. Seleccionar la instancia **Free**, builder **Dockerfile** y ruta
    `docker/Dockerfile`, exponer el puerto `8080` por HTTP y usar `/ready`
@@ -58,6 +58,7 @@ obligatorios: `WHATOMATE_<SECCIÓN>__<CAMPO>`.
 | `WHATOMATE_RATE_LIMIT__TRUST_PROXY` | `true` detrás del proxy de Koyeb |
 | `WHATOMATE_WHATSAPP__APP_ID` | `1837938394295721` (app de Meta `petos`) |
 | `WHATOMATE_WHATSAPP__APP_SECRET` | Clave secreta de esa app |
+| `WHATOMATE_WHATSAPP__CONFIG_ID` | `1444149661001102` (configuración `Petos WhatsApp`) |
 | `WHATOMATE_WHATSAPP__WEBHOOK_VERIFY_TOKEN` | Token aleatorio para verificar el webhook |
 
 El arranque en producción rechaza la contraseña de administrador de ejemplo,
