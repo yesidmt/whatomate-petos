@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -63,6 +63,57 @@ const whatsappConfig = ref<{ app_id: string; config_id: string; api_version: str
 const isFBSDKLoaded = ref(false)
 const isConnectingFB = ref(false)
 const showOnboardingDialog = ref(false)
+let signupSession: { phoneNumberId: string; wabaId: string; isOnBizApp: boolean } | null = null
+let pendingSignupCode: string | null = null
+let requiresCoexistence = false
+let signupTimeout: ReturnType<typeof setTimeout> | null = null
+
+function clearSignupTimeout() {
+  if (signupTimeout) clearTimeout(signupTimeout)
+  signupTimeout = null
+}
+
+function handleEmbeddedSignupMessage(event: MessageEvent) {
+  let hostname: string
+  try {
+    hostname = new URL(event.origin).hostname
+  } catch {
+    return
+  }
+  if (hostname !== 'facebook.com' && !hostname.endsWith('.facebook.com')) return
+
+  let payload: any
+  try {
+    payload = typeof event.data === 'string' ? JSON.parse(event.data) : event.data
+  } catch {
+    return
+  }
+  if (payload?.type !== 'WA_EMBEDDED_SIGNUP') return
+
+  if (payload.event === 'FINISH' || payload.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING') {
+    const data = payload.data || {}
+    signupSession = {
+      phoneNumberId: data.phone_number_id || '',
+      wabaId: data.messaging_account_ids?.[0] || data.waba_id || '',
+      isOnBizApp: data.is_on_biz_app === true || payload.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING'
+    }
+    finishCoexistenceSignup()
+  }
+}
+
+function finishCoexistenceSignup() {
+  if (!requiresCoexistence || !pendingSignupCode || !signupSession) return
+  clearSignupTimeout()
+  const code = pendingSignupCode
+  pendingSignupCode = null
+
+  if (!signupSession.isOnBizApp || !signupSession.phoneNumberId || !signupSession.wabaId) {
+    toast.error('Meta did not confirm WhatsApp Business app coexistence. Account was not connected.')
+    isConnectingFB.value = false
+    return
+  }
+  exchangeCodeForToken(code, signupSession.phoneNumberId, signupSession.wabaId)
+}
 
 const canWrite = computed(() => authStore.hasPermission('accounts', 'write'))
 const canDelete = computed(() => authStore.hasPermission('accounts', 'delete'))
@@ -87,7 +138,12 @@ watch(() => organizationsStore.selectedOrgId, () => {
   fetchWhatsAppConfig()
 })
 onMounted(async () => {
+  window.addEventListener('message', handleEmbeddedSignupMessage)
   await Promise.all([fetchAccounts(), fetchWhatsAppConfig()])
+})
+onUnmounted(() => {
+  window.removeEventListener('message', handleEmbeddedSignupMessage)
+  clearSignupTimeout()
 })
 
 async function fetchAccounts() {
@@ -152,6 +208,10 @@ function launchWhatsAppSignup(isCoexistence: boolean = true) {
 
   showOnboardingDialog.value = false
   isConnectingFB.value = true
+  signupSession = null
+  pendingSignupCode = null
+  requiresCoexistence = isCoexistence
+  clearSignupTimeout()
 
   const loginOptions: any = {
     config_id: whatsappConfig.value.config_id,
@@ -162,13 +222,13 @@ function launchWhatsAppSignup(isCoexistence: boolean = true) {
   if (isCoexistence) {
     loginOptions.extras = {
       setup: {},
-      featureType: 'whatsapp_business_app_onboarding',
-      sessionInfoVersion: '3',
-      version: 'v3'
+      version: 'v5'
     }
   } else {
     loginOptions.extras = {
-      setup: {}
+      setup: {},
+      version: 'v5',
+      features: [{ name: 'whatsapp_business_app_onboarding', enabled: false }]
     }
   }
 
@@ -176,8 +236,6 @@ function launchWhatsAppSignup(isCoexistence: boolean = true) {
     (response: any) => {
       if (response.authResponse) {
         const code = response.authResponse.code
-        const phoneNumberId = response.authResponse.phone_number_id
-        const wabaId = response.authResponse.waba_id
 
         if (!code) {
           toast.error('Incomplete data from Facebook: missing authorization code')
@@ -185,7 +243,23 @@ function launchWhatsAppSignup(isCoexistence: boolean = true) {
           return
         }
 
-        exchangeCodeForToken(code, phoneNumberId, wabaId)
+        if (isCoexistence) {
+          pendingSignupCode = code
+          finishCoexistenceSignup()
+          if (pendingSignupCode) {
+            signupTimeout = setTimeout(() => {
+              pendingSignupCode = null
+              isConnectingFB.value = false
+              toast.error('Meta did not return coexistence details. Account was not connected.')
+            }, 10000)
+          }
+        } else {
+          exchangeCodeForToken(
+            code,
+            signupSession?.phoneNumberId || response.authResponse.phone_number_id,
+            signupSession?.wabaId || response.authResponse.waba_id
+          )
+        }
       } else if (response.error) {
         console.error('Facebook SDK error:', response.error)
         toast.error(`Facebook error: ${response.error.message || 'Unknown error'}`)

@@ -64,7 +64,7 @@ obligatorios: `WHATOMATE_<SECCIÓN>__<CAMPO>`.
 | `WHATOMATE_RATE_LIMIT__TRUST_PROXY` | `true` detrás del proxy de Koyeb |
 | `WHATOMATE_WHATSAPP__APP_ID` | `1837938394295721` (app de Meta `petos`) |
 | `WHATOMATE_WHATSAPP__APP_SECRET` | Clave secreta de esa app |
-| `WHATOMATE_WHATSAPP__CONFIG_ID` | `1444149661001102` (configuración `Petos WhatsApp`) |
+| `WHATOMATE_WHATSAPP__CONFIG_ID` | Identificador de una configuración nueva de WhatsApp Embedded Signup v5; la configuración anterior `1444149661001102` es de tipo General y no sirve para coexistencia. |
 | `WHATOMATE_WHATSAPP__WEBHOOK_VERIFY_TOKEN` | Token aleatorio para verificar el webhook |
 
 El arranque en producción rechaza la contraseña de administrador de ejemplo,
@@ -80,6 +80,14 @@ El número comercial debe incorporarse al WhatsApp Business Platform por el
 flujo apropiado antes de conectar una cuenta en Whatomate. Si el número sigue
 en la app móvil de WhatsApp Business, utilizar el flujo de coexistencia para
 conservar el uso en el teléfono.
+
+La app `petos` debe completar la verificación del negocio y la revisión de
+Meta antes de registrar usuarios en producción. Cuando Meta habilite la
+variación WhatsApp Embedded Signup, crear una configuración nueva para Cloud
+API y actualizar `WHATOMATE_WHATSAPP__CONFIG_ID` en Koyeb. El frontend solicita
+Embedded Signup v5 y solo conecta en modo coexistencia cuando Meta devuelve
+`is_on_biz_app: true` junto con los identificadores del número y la cuenta de
+mensajes. No reutilizar la configuración General anterior.
 
 El directorio local `/app/uploads` de un servicio web de Koyeb es efímero.
 Para conservar archivos multimedia entre despliegues, configurar el backend
