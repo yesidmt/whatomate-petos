@@ -129,6 +129,11 @@ func (c *Client) VerifySession(ctx context.Context) error {
 
 func (c *Client) SendText(ctx context.Context, phone, message, replyTo string) (string, error) {
 	phone = NormalizePhone(phone)
+	// Contacts created locally in Petos may contain a Colombian mobile number
+	// without its country code. WAHA requires the international chat ID.
+	if len(phone) == 10 && strings.HasPrefix(phone, "3") && strings.HasPrefix(c.ExpectedPhone, "57") {
+		phone = "57" + phone
+	}
 	if !phonePattern.MatchString(phone) || isExcludedPhone(phone) {
 		return "", errors.New("invalid or excluded recipient phone")
 	}
@@ -147,10 +152,21 @@ func (c *Client) SendText(ctx context.Context, phone, message, replyTo string) (
 		return "", err
 	}
 	var result struct {
-		ID string `json:"id"`
+		ID  string `json:"id"`
+		Key struct {
+			ID string `json:"id"`
+		} `json:"key"`
 	}
-	if err := json.Unmarshal(data, &result); err != nil || result.ID == "" {
+	if err := json.Unmarshal(data, &result); err != nil {
 		return "", errors.New("WAHA did not return a message ID")
 	}
-	return result.ID, nil
+	// NOWEB returns the Baileys message under key.id, while other WAHA
+	// engines can return a top-level id. NOWEB accepts the raw ID for replies.
+	if result.ID != "" {
+		return result.ID, nil
+	}
+	if result.Key.ID != "" {
+		return result.Key.ID, nil
+	}
+	return "", errors.New("WAHA did not return a message ID")
 }

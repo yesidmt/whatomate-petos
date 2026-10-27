@@ -27,6 +27,9 @@ func TestSendTextRejectsWrongSenderAndExcludedNumber(t *testing.T) {
 	if _, err := c.SendText(context.Background(), ExcludedPhone, "hello", ""); err == nil {
 		t.Fatal("expected excluded recipient to block send")
 	}
+	if _, err := c.SendText(context.Background(), "3104558226", "hello", ""); err == nil {
+		t.Fatal("expected local-format excluded recipient to block send")
+	}
 	if sends != 0 {
 		t.Fatalf("sent %d messages with a blocked phone", sends)
 	}
@@ -75,5 +78,39 @@ func TestSendTextUsesApprovedSessionAndAPIKey(t *testing.T) {
 	id, err := c.SendText(context.Background(), "+57 300 999 8877", "hello", "")
 	if err != nil || id != "true_573009998877@c.us_ABC" {
 		t.Fatalf("unexpected result: id=%s err=%v", id, err)
+	}
+}
+
+func TestSendTextNOWEBResponseAndColombianLocalNumber(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/sessions/temporary":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"status": "WORKING", "me": map[string]string{"id": "573001112233@c.us"},
+			})
+		case "/api/sendText":
+			var body struct {
+				ChatID string `json:"chatId"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Fatal(err)
+			}
+			if body.ChatID != "573009998877@c.us" {
+				t.Errorf("unexpected chat ID: %s", body.ChatID)
+			}
+			w.WriteHeader(http.StatusCreated)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"key": map[string]any{"id": "3EB0ABC123", "remoteJid": "573009998877@s.whatsapp.net", "fromMe": true},
+			})
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+	c := &Client{BaseURL: server.URL, APIKey: "test-key", Session: "temporary", ExpectedPhone: "573001112233", HTTP: server.Client()}
+	id, err := c.SendText(context.Background(), "3009998877", "hello", "")
+	if err != nil || id != "3EB0ABC123" {
+		t.Fatalf("unexpected NOWEB result: id=%s err=%v", id, err)
 	}
 }

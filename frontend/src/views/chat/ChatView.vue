@@ -146,6 +146,9 @@ const orgAccounts = ref<any[]>([])
 const isBusinessCallingEnabled = computed(() =>
   orgAccounts.value.find(account => account.name === selectedAccount.value)?.business_calling_enabled === true
 )
+const isWAHAAccount = computed(() =>
+  orgAccounts.value.find(account => account.name === selectedAccount.value)?.provider === 'waha'
+)
 
 // File upload state
 const fileInputRef = ref<HTMLInputElement | null>(null)
@@ -219,7 +222,7 @@ const isTagFilterOpen = ref(false)
 // Service window state
 const isServiceWindowExpired = computed(() => {
   const contact = contactsStore.currentContact
-  if (!contact) return false
+  if (!contact || isWAHAAccount.value) return false
   return contact.service_window_open === false
 })
 
@@ -2513,7 +2516,7 @@ async function sendMediaMessage() {
               </TooltipTrigger>
               <TooltipContent>{{ $t('chat.cannedResponses') }}</TooltipContent>
             </Tooltip>
-            <Tooltip>
+            <Tooltip v-if="!isWAHAAccount">
               <TooltipTrigger as-child>
                 <span ref="templatePickerRef">
                   <TemplatePicker
@@ -2524,7 +2527,7 @@ async function sendMediaMessage() {
               </TooltipTrigger>
               <TooltipContent>{{ $t('chat.sendTemplate') }}</TooltipContent>
             </Tooltip>
-            <Tooltip>
+            <Tooltip v-if="!isWAHAAccount">
               <TooltipTrigger as-child>
                 <button type="button" class="w-9 h-9 rounded-lg hover:bg-white/[0.08] light:hover:bg-gray-200 flex items-center justify-center transition-colors" @click="openFilePicker">
                   <Paperclip class="w-[18px] h-[18px] text-white/40 light:text-gray-500" />
