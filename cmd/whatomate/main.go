@@ -21,6 +21,7 @@ import (
 	"github.com/shridarpatil/whatomate/internal/queue"
 	"github.com/shridarpatil/whatomate/internal/storage"
 	"github.com/shridarpatil/whatomate/internal/tts"
+	"github.com/shridarpatil/whatomate/internal/waha"
 	"github.com/shridarpatil/whatomate/internal/websocket"
 	"github.com/shridarpatil/whatomate/internal/worker"
 	"github.com/shridarpatil/whatomate/pkg/whatsapp"
@@ -182,6 +183,10 @@ func runServer(args []string) {
 
 	// Initialize WhatsApp client
 	waClient := whatsapp.NewWithBaseURL(lo, cfg.WhatsApp.BaseURL)
+	wahaClient, err := waha.NewFromEnv()
+	if err != nil {
+		lo.Fatal("Invalid temporary WAHA configuration", "error", err)
+	}
 
 	// Initialize WebSocket hub
 	wsHub := websocket.NewHub(lo)
@@ -206,6 +211,7 @@ func runServer(args []string) {
 		Redis:      rdb,
 		Log:        lo,
 		WhatsApp:   waClient,
+		WAHA:       wahaClient,
 		WSHub:      wsHub,
 		Queue:      jobQueue,
 		HTTPClient: httpClient,
@@ -625,6 +631,8 @@ func setupRoutes(g *fastglue.Fastglue, app *handlers.App, lo logf.Logger, basePa
 	// Accounts
 	g.GET("/api/accounts", app.ListAccounts)
 	g.POST("/api/accounts", app.CreateAccount)
+	g.POST("/api/accounts/waha", app.CreateWAHAAccount)
+	g.GET("/api/accounts/waha/status", app.WAHAStatus)
 	g.POST("/api/accounts/exchange-token", app.ExchangeToken) // Embedded signup
 	g.GET("/api/accounts/{id}", app.GetAccount)
 	g.PUT("/api/accounts/{id}", app.UpdateAccount)

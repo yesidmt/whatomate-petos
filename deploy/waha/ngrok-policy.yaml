@@ -1,0 +1,6 @@
+# Expose only the two WAHA endpoints Whatomate uses. WAHA still checks X-Api-Key.
+on_http_request:
+  - expressions:
+      - "!(req.method == 'GET' && req.url.path == '/api/sessions/petos-temporal') && !(req.method == 'POST' && req.url.path == '/api/sendText')"
+    actions:
+      - type: deny

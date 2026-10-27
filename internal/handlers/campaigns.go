@@ -166,8 +166,12 @@ func (a *App) CreateCampaign(r *fastglue.Request) error {
 	}
 
 	// Validate WhatsApp account exists
-	if _, err := a.resolveWhatsAppAccount(orgID, req.WhatsAppAccount); err != nil {
+	account, err := a.resolveWhatsAppAccount(orgID, req.WhatsAppAccount)
+	if err != nil {
 		return r.SendErrorEnvelope(fasthttp.StatusBadRequest, "WhatsApp account not found", nil, "")
+	}
+	if isWAHAAccount(account) {
+		return r.SendErrorEnvelope(fasthttp.StatusBadRequest, "Temporary WAHA accounts do not support campaigns", nil, "")
 	}
 
 	campaign := models.BulkMessageCampaign{
@@ -312,6 +316,10 @@ func (a *App) UpdateCampaign(r *fastglue.Request) error {
 	}
 
 	if req.WhatsAppAccount != "" {
+		account, err := a.resolveWhatsAppAccount(orgID, req.WhatsAppAccount)
+		if err != nil || isWAHAAccount(account) {
+			return r.SendErrorEnvelope(fasthttp.StatusBadRequest, "Campaigns require a Meta account", nil, "")
+		}
 		updates["whats_app_account"] = req.WhatsAppAccount
 	}
 
@@ -416,6 +424,10 @@ func (a *App) StartCampaign(r *fastglue.Request) error {
 	campaign, err := findByIDAndOrg[models.BulkMessageCampaign](a.DB, r, id, orgID, "Campaign")
 	if err != nil {
 		return nil
+	}
+	account, err := a.resolveWhatsAppAccount(orgID, campaign.WhatsAppAccount)
+	if err != nil || isWAHAAccount(account) {
+		return r.SendErrorEnvelope(fasthttp.StatusBadRequest, "Campaigns require a Meta account", nil, "")
 	}
 
 	// Check if campaign can be started

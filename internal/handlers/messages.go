@@ -145,6 +145,14 @@ func SLASendOptions() MessageSendOptions {
 // SendOutgoingMessage is the unified method for sending all types of WhatsApp messages.
 // It handles: text, media (image/video/audio/document), interactive (buttons/list/cta_url), and template messages.
 func (a *App) SendOutgoingMessage(ctx context.Context, req OutgoingMessageRequest, opts MessageSendOptions) (*models.Message, error) {
+	if isWAHAAccount(req.Account) {
+		if a.WAHA == nil {
+			return nil, fmt.Errorf("temporary WAHA transport is not configured")
+		}
+		if req.Account.PhoneID != "waha:"+a.WAHA.Session || req.Type != models.MessageTypeText {
+			return nil, fmt.Errorf("temporary WAHA account supports text messages only")
+		}
+	}
 	// 1. Create message record
 	msg := a.createOutgoingMessage(req, opts)
 
@@ -156,6 +164,13 @@ func (a *App) SendOutgoingMessage(ctx context.Context, req OutgoingMessageReques
 
 	// 2. Define the send function based on message type
 	sendFn := func(sendCtx context.Context) (string, error) {
+		if isWAHAAccount(req.Account) {
+			var replyTo string
+			if req.ReplyToMessage != nil {
+				replyTo = req.ReplyToMessage.WhatsAppMessageID
+			}
+			return a.WAHA.SendText(sendCtx, req.Contact.PhoneNumber, req.Content, replyTo)
+		}
 		waAccount := a.toWhatsAppAccount(req.Account)
 		rcpt := whatsapp.Recipient{Phone: req.Contact.PhoneNumber, BSUID: req.Contact.BSUID}
 

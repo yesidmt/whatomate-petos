@@ -39,6 +39,7 @@ const authStore = useAuthStore()
 interface WhatsAppAccount {
   id: string
   name: string
+  provider: string
   app_id: string
   phone_id: string
   business_id: string
@@ -57,6 +58,9 @@ const fetchError = ref(false)
 const deleteDialogOpen = ref(false)
 const accountToDelete = ref<WhatsAppAccount | null>(null)
 const isDeleting = ref(false)
+const wahaStatus = ref<{ configured: boolean; connected: boolean; phone?: string }>({ configured: false, connected: false })
+const isAddingWAHA = ref(false)
+const hasWAHAAccount = computed(() => accounts.value.some(account => account.provider === 'waha'))
 
 // Facebook Embedded Signup State
 const whatsappConfig = ref<{ app_id: string; config_id: string; api_version: string } | null>(null)
@@ -139,7 +143,7 @@ watch(() => organizationsStore.selectedOrgId, () => {
 })
 onMounted(async () => {
   window.addEventListener('message', handleEmbeddedSignupMessage)
-  await Promise.all([fetchAccounts(), fetchWhatsAppConfig()])
+  await Promise.all([fetchAccounts(), fetchWhatsAppConfig(), fetchWAHAStatus()])
 })
 onUnmounted(() => {
   window.removeEventListener('message', handleEmbeddedSignupMessage)
@@ -157,6 +161,29 @@ async function fetchAccounts() {
     toast.error(t('common.failedLoad', { resource: t('resources.accounts') }))
   } finally {
     isLoading.value = false
+  }
+}
+
+async function fetchWAHAStatus() {
+  try {
+    const response = await api.get('/accounts/waha/status')
+    wahaStatus.value = response.data.data
+  } catch {
+    wahaStatus.value = { configured: false, connected: false }
+  }
+}
+
+async function addWAHAAccount() {
+  isAddingWAHA.value = true
+  try {
+    await api.post('/accounts/waha', { name: 'WAHA temporal', is_default_outgoing: false })
+    toast.success('Cuenta temporal añadida. Selecciónala al enviar mensajes de texto.')
+    await fetchAccounts()
+  } catch (error) {
+    toast.error(getErrorMessage(error, 'No se pudo añadir la cuenta temporal'))
+    await fetchWAHAStatus()
+  } finally {
+    isAddingWAHA.value = false
   }
 }
 
@@ -337,6 +364,17 @@ async function confirmDelete() {
       <template #actions>
         <div v-if="canWrite" class="flex items-center gap-2">
           <Button
+            v-if="wahaStatus.configured && !hasWAHAAccount"
+            size="sm"
+            variant="outline"
+            :disabled="!wahaStatus.connected || isAddingWAHA"
+            @click="addWAHAAccount"
+          >
+            <Loader2 v-if="isAddingWAHA" class="h-4 w-4 mr-2 animate-spin" />
+            <Smartphone v-else class="h-4 w-4 mr-2" />
+            WAHA temporal
+          </Button>
+          <Button
             v-if="whatsappConfig?.app_id && whatsappConfig?.config_id"
             size="sm"
             @click="showOnboardingDialog = true"
@@ -368,6 +406,10 @@ async function confirmDelete() {
 
     <ScrollArea v-else class="flex-1">
       <div class="p-6">
+        <p v-if="wahaStatus.configured" class="mb-4 text-sm text-muted-foreground">
+          WAHA temporal: {{ wahaStatus.connected ? 'conectado' : 'esperando vinculación' }}.
+          Solo admite mensajes de texto desde el número alterno configurado.
+        </p>
         <div>
           <Card>
             <CardHeader>
@@ -410,12 +452,16 @@ async function confirmDelete() {
                   </div>
                 </template>
                 <template #cell-account="{ item: account }">
-                  <RouterLink :to="`/settings/accounts/${account.id}`" class="flex items-center gap-3 text-inherit no-underline hover:opacity-80">
+                  <div class="flex items-center gap-3">
                     <div class="h-9 w-9 rounded-full bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
                       <Phone class="h-4 w-4 text-emerald-500" />
                     </div>
-                    <p class="font-medium truncate">{{ account.name }}</p>
-                  </RouterLink>
+                    <span v-if="account.provider === 'waha'" class="font-medium truncate">{{ account.name }}</span>
+                    <RouterLink v-else :to="`/settings/accounts/${account.id}`" class="font-medium truncate text-inherit no-underline hover:opacity-80">
+                      {{ account.name }}
+                    </RouterLink>
+                    <Badge v-if="account.provider === 'waha'" variant="outline" class="text-[10px]">Temporal</Badge>
+                  </div>
                 </template>
                 <template #cell-app_id="{ item: account }">
                   <code v-if="account.app_id" class="text-xs bg-muted px-1.5 py-0.5 rounded">{{ account.app_id }}</code>
@@ -447,7 +493,7 @@ async function confirmDelete() {
                 </template>
                 <template #cell-actions="{ item: account }">
                   <div class="flex items-center justify-end gap-1">
-                    <Tooltip>
+                    <Tooltip v-if="account.provider !== 'waha'">
                       <TooltipTrigger as-child>
                         <RouterLink :to="`/settings/accounts/${account.id}`">
                           <Button variant="ghost" size="icon" class="h-8 w-8"><Pencil class="h-4 w-4" /></Button>

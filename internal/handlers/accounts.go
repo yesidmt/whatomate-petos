@@ -9,6 +9,7 @@ import (
 	"io"
 	"math/big"
 	"net/http"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/shridarpatil/whatomate/internal/crypto"
@@ -38,6 +39,7 @@ type AccountRequest struct {
 type AccountResponse struct {
 	ID                     uuid.UUID  `json:"id"`
 	Name                   string     `json:"name"`
+	Provider               string     `json:"provider"`
 	AppID                  string     `json:"app_id"`
 	PhoneID                string     `json:"phone_id"`
 	BusinessID             string     `json:"business_id"`
@@ -99,6 +101,9 @@ func (a *App) CreateAccount(r *fastglue.Request) error {
 	// Validate required fields
 	if req.Name == "" || req.PhoneID == "" || req.BusinessID == "" || req.AccessToken == "" {
 		return r.SendErrorEnvelope(fasthttp.StatusBadRequest, "Name, phone_id, business_id, and access_token are required", nil, "")
+	}
+	if strings.HasPrefix(req.PhoneID, "waha:") || req.BusinessID == "waha" {
+		return r.SendErrorEnvelope(fasthttp.StatusBadRequest, "Use the temporary WAHA account endpoint", nil, "")
 	}
 
 	// Generate webhook verify token if not provided
@@ -198,6 +203,9 @@ func (a *App) UpdateAccount(r *fastglue.Request) error {
 	if err != nil {
 		return nil
 	}
+	if isWAHAAccount(account) {
+		return r.SendErrorEnvelope(fasthttp.StatusBadRequest, "Temporary WAHA accounts cannot be edited here", nil, "")
+	}
 
 	oldAccount := *account // value copy for audit
 
@@ -214,6 +222,9 @@ func (a *App) UpdateAccount(r *fastglue.Request) error {
 		account.AppID = req.AppID
 	}
 	if req.PhoneID != "" {
+		if strings.HasPrefix(req.PhoneID, "waha:") {
+			return r.SendErrorEnvelope(fasthttp.StatusBadRequest, "Use the temporary WAHA account endpoint", nil, "")
+		}
 		account.PhoneID = req.PhoneID
 	}
 	if req.BusinessID != "" {
@@ -339,6 +350,15 @@ func (a *App) TestAccountConnection(r *fastglue.Request) error {
 	if err != nil {
 		return nil
 	}
+	if isWAHAAccount(account) {
+		if a.WAHA == nil || account.PhoneID != "waha:"+a.WAHA.Session {
+			return r.SendEnvelope(map[string]any{"success": false, "error": "WAHA is not configured for this account"})
+		}
+		if err := a.WAHA.VerifySession(r.RequestCtx); err != nil {
+			return r.SendEnvelope(map[string]any{"success": false, "error": err.Error()})
+		}
+		return r.SendEnvelope(map[string]any{"success": true, "display_phone_number": a.WAHA.ExpectedPhone, "verified_name": "WAHA temporary session"})
+	}
 
 	// Use the comprehensive validation function
 	if err := a.validateAccountCredentials(account.PhoneID, account.BusinessID, account.AccessToken, account.APIVersion); err != nil {
@@ -456,6 +476,7 @@ func accountToResponse(acc models.WhatsAppAccount) AccountResponse {
 	resp := AccountResponse{
 		ID:                     acc.ID,
 		Name:                   acc.Name,
+		Provider:               accountProvider(&acc),
 		AppID:                  acc.AppID,
 		PhoneID:                acc.PhoneID,
 		BusinessID:             acc.BusinessID,
@@ -466,8 +487,8 @@ func accountToResponse(acc models.WhatsAppAccount) AccountResponse {
 		AutoReadReceipt:        acc.AutoReadReceipt,
 		BusinessCallingEnabled: acc.BusinessCallingEnabled,
 		Status:                 acc.Status,
-		HasAccessToken:         acc.AccessToken != "",
-		HasAppSecret:           acc.AppSecret != "",
+		HasAccessToken:         acc.AccessToken != "" && !isWAHAAccount(&acc),
+		HasAppSecret:           acc.AppSecret != "" && !isWAHAAccount(&acc),
 		CreatedByID:            acc.CreatedByID,
 		UpdatedByID:            acc.UpdatedByID,
 		CreatedAt:              acc.CreatedAt.Format("2006-01-02T15:04:05Z"),

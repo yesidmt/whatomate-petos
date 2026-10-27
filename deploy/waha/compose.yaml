@@ -1,0 +1,14 @@
+services:
+  waha:
+    image: devlikeapro/waha:noweb-arm
+    container_name: petos-waha-temporary
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    env_file:
+      - .env
+    volumes:
+      - waha-sessions:/app/.sessions
+
+volumes:
+  waha-sessions:

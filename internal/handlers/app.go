@@ -14,6 +14,7 @@ import (
 	"github.com/shridarpatil/whatomate/internal/queue"
 	"github.com/shridarpatil/whatomate/internal/storage"
 	"github.com/shridarpatil/whatomate/internal/tts"
+	"github.com/shridarpatil/whatomate/internal/waha"
 	"github.com/shridarpatil/whatomate/internal/websocket"
 	"github.com/shridarpatil/whatomate/pkg/whatsapp"
 	"github.com/valyala/fasthttp"
@@ -29,6 +30,7 @@ type App struct {
 	Redis             *redis.Client
 	Log               logf.Logger
 	WhatsApp          *whatsapp.Client
+	WAHA              *waha.Client
 	WSHub             *websocket.Hub
 	Queue             queue.Queue
 	CampaignSubCancel context.CancelFunc
